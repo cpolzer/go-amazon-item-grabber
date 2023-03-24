@@ -16,13 +16,6 @@ import (
 	"github.com/sethvargo/go-envconfig"
 )
 
-const (
-	out_path        = "../out"
-	image_out_dir   = "images"
-	report_filename = "data.csv"
-	target_base_uri = "https://www.amazon.de"
-)
-
 func main() {
 	parentCtx := context.Background()
 	var regexItemName = regexp.MustCompile(`^(.*)\/[dp\/].*`)
@@ -32,7 +25,7 @@ func main() {
 	}
 	err := setUpDirectories(conf)
 	if err != nil {
-		log.Fatalf("Error setting up required output directories '%s/%s'", conf.OutPath, conf.ScreenshotSubDir)
+		log.Fatalf("Error setting up required output directories '%s/%s'. Error: %s", conf.OutPath, conf.ScreenshotSubDir, err)
 	}
 	chromeDriver, chromeDriverCancelFunc := chromeDp.New(parentCtx, &conf)
 	defer chromeDriverCancelFunc()
@@ -51,10 +44,10 @@ func main() {
 		log.Fatalf("Error scrapeing our target - err: %q", err)
 	}
 
-	//err = chromeDriver.AcceptCookies(conf.SearchBaseUrl)
-	//if err != nil {
-	//	log.Fatalf("Error accepting the cookies - err: %q", err)
-	//}
+	err = chromeDriver.AcceptCookies(conf.SearchBaseUrl)
+	if err != nil {
+		log.Fatalf("Error accepting the cookies - err: %q", err)
+	}
 
 	for asin, url := range knownASINs {
 		fmt.Printf("ASIN: %s | url: %s\n", asin, url)

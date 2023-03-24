@@ -68,8 +68,6 @@ func (c driver) ScreenshotPage(uri string, quality int) (*[]byte, error) {
 		chromedp.Navigate(uri),
 		chromedp.Sleep(2000 * time.Millisecond),
 		chromedp.WaitVisible(`#navFooter`),
-		chromedp.Click(`#sp-cc-accept`, chromedp.NodeVisible),
-		chromedp.Sleep(time.Second * 2),
 		chromedp.WaitVisible(`#availability`, chromedp.ByID),
 		chromedp.FullScreenshot(&imageBuf, quality),
 	}

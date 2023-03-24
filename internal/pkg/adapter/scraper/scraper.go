@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gocolly/colly/v2"
+	"github.com/gocolly/colly/v2/proxy"
 )
 
 type Scraper struct {
@@ -20,7 +21,7 @@ type Scraper struct {
 	collector  *colly.Collector
 }
 
-func New(ctx context.Context, conf *config.Config, reportFile *os.File, csvWriter *csv.Writer) *Scraper {
+func New(_ context.Context, conf *config.Config, reportFile *os.File, csvWriter *csv.Writer) *Scraper {
 	return &Scraper{
 		asinRegex:  regexp.MustCompile(`^.*[dp\/](.*)\/ref.*`),
 		csvWriter:  csvWriter,
@@ -37,19 +38,19 @@ func removeHttpPrefixFromUrl(url string) string {
 
 func (scr Scraper) GetSearchItemLinksAndAsin(searchTerm string) (map[string]string, error) {
 	knownASINs := map[string]string{}
+
 	prepareReportFile(scr.csvWriter)
-	// Create a callback on the XPath query searching for the URLs
+
 	scr.collector.OnHTML("a.a-link-normal", func(e *colly.HTMLElement) {
 		link := e.Attr("href")
 
 		if strings.Contains(link, "/dp/") {
 			s := scr.asinRegex.ReplaceAllString(link, `$1`)
 			knownASINs[s] = link
-			/// klick tshirt size if available, check seller name‚
 		}
 
 	})
-	// Start the collector
+
 	err := scr.collector.Visit(fmt.Sprintf("%s/s?k=%s", scr.conf.SearchBaseUrl, searchTerm))
 	if err != nil {
 		return nil, err
@@ -62,6 +63,14 @@ func (scr Scraper) GetSearchItemLinksAndAsin(searchTerm string) (map[string]stri
 	}
 
 	return knownASINs, nil
+}
+
+func GetCollyProxy(proxyList []string) (*colly.ProxyFunc, error) {
+	rp, err := proxy.RoundRobinProxySwitcher(proxyList...)
+	if err != nil {
+		return nil, err
+	}
+	return &rp, nil
 }
 
 func prepareReportFile(writer *csv.Writer) {

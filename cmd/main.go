@@ -1,6 +1,7 @@
 package main
 
 import (
+	"amazon-crawler/m/v2/internal/config"
 	"context"
 	"encoding/csv"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/network"
-	"github.com/chromedp/chromedp/kb"
+	"github.com/sethvargo/go-envconfig"
 
 	"github.com/chromedp/chromedp"
 	"github.com/gocolly/colly/v2"
@@ -26,9 +27,34 @@ const (
 )
 
 func main() {
+	parentCtx := context.Background()
 	var regexAsin = regexp.MustCompile(`^.*[dp\/](.*)\/ref.*`)
 	var regexItemName = regexp.MustCompile(`^(.*)\/[dp\/].*`)
-	chromeDpCtx, chromeDpCancel := chromedp.NewContext(context.Background(), chromedp.WithDebugf(log.Printf))
+
+	var conf config.Config
+	if err := envconfig.Process(parentCtx, &conf); err != nil {
+		log.Fatal(err)
+	}
+	opts := append(chromedp.DefaultExecAllocatorOptions[:],
+		chromedp.Flag("headless", true),
+		chromedp.NoFirstRun,
+
+		chromedp.NoDefaultBrowserCheck,
+		chromedp.WindowSize(1920, 1080),
+	)
+	if conf.Debug {
+		// hint from https://devmarkpro.com/chromedp-get-started
+		opts = append(
+			chromedp.DefaultExecAllocatorOptions[:],
+			chromedp.Flag("headless", false),
+			chromedp.NoFirstRun,
+			chromedp.NoDefaultBrowserCheck,
+			chromedp.WindowSize(1920, 1080),
+		)
+
+	}
+	parentCtx, _ = chromedp.NewExecAllocator(parentCtx, opts...)
+	chromeDpCtx, chromeDpCancel := chromedp.NewContext(parentCtx, chromedp.WithDebugf(log.Printf))
 	defer chromeDpCancel()
 	if err := chromedp.Run(chromeDpCtx, acceptCookies(target_base_uri)); err != nil {
 		log.Fatal(err)
@@ -81,9 +107,14 @@ func main() {
 		screenShotUri := fmt.Sprintf("%s%s", target_base_uri, el)
 		sizeOptionValue := fmt.Sprintf("1,%s", key)
 		selectedOption := ""
-		fmt.Printf("Storing screenshot to %s | from url: %s\n | and the size selector i %s", fileName, screenShotUri, sizeOptionValue)
+		sellerName := ""
+
+		fmt.Printf("Storing screenshot to %s | from url: %s\n | and the size selector is %s\n", fileName, screenShotUri, sizeOptionValue)
 		var imageBuf []byte
-		if err := chromedp.Run(chromeDpCtx, screenshotDetailPages(screenShotUri, 90, sizeOptionValue, &selectedOption, &imageBuf)); err != nil {
+		tasks, result := screenshotDetailPages(screenShotUri, 90, &sizeOptionValue, &selectedOption, &sellerName, &imageBuf)
+		fmt.Printf("Result is  %v", result)
+		err := chromedp.Run(chromeDpCtx, tasks)
+		if err != nil {
 			log.Fatal(err)
 		}
 		fmt.Printf("Selected t-shirt size %s", sizeOptionValue)
@@ -105,20 +136,26 @@ func acceptCookies(url string) chromedp.Tasks {
 	}
 }
 
-func screenshotDetailPages(url string, quality int, sizeOptionValue string, selectedSize *string, res *[]byte) chromedp.Tasks {
-	return chromedp.Tasks{
+func screenshotDetailPages(url string, quality int, sizeOptionValue *string, selectedSize, sellerName *string, res *[]byte) (chromedp.Tasks, interface{}) {
+	var result interface{}
+	tasks := chromedp.Tasks{
 		chromedp.EmulateViewport(1920, 1080),
-		network.SetExtraHTTPHeaders(network.Headers(map[string]interface{}{"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36"})),
+		network.SetExtraHTTPHeaders(network.Headers(map[string]interface{}{"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36", "Accept-Language": "de"})),
 		chromedp.Navigate(url),
 		chromedp.Sleep(2000 * time.Millisecond),
-		chromedp.WaitVisible(`#native_dropdown_selected_size_name`),
+		chromedp.WaitVisible(`#navFooter`),
+
 		chromedp.Click(`#native_dropdown_selected_size_name`),
-		chromedp.SendKeys(`#native_dropdown_selected_size_name`, kb.ArrowDown+kb.ArrowDown+kb.Enter, chromedp.ByID),
-		//chromedp.SetValue(`#native_dropdown_selected_size_name`, sizeOptionValue, chromedp.ByID),
-		chromedp.WaitVisible(`#corePriceDisplay_desktop_feature_div`),
+
+		//chromedp.EvaluateAsDevTools(`selEl = document.getElementById("native_dropdown_selected_size_name"); selEl.options[1].selected = true; selEl.options[1].value;`, &result),
+		chromedp.Sleep(2000 * time.Millisecond),
+
 		chromedp.Value(`#native_dropdown_selected_size_name`, selectedSize, chromedp.ByID),
+		//chromedp.WaitVisible(`#availability`, chromedp.ByID),
+		//chromedp.Text(`div[tabular-attribute-name="Verkäufer"]`, sellerName, chromedp.ByQuery),
 		chromedp.FullScreenshot(res, quality),
 	}
+	return tasks, result
 }
 
 func prepareReportFile(outPath, fileName string) (*os.File, *csv.Writer, error) {

@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/gocolly/colly/v2"
-	"github.com/gocolly/colly/v2/proxy"
 )
 
 type Scraper struct {
@@ -63,14 +62,6 @@ func (scr Scraper) GetSearchItemLinksAndAsin(searchTerm string) (map[string]stri
 	}
 
 	return knownASINs, nil
-}
-
-func GetCollyProxy(proxyList []string) (*colly.ProxyFunc, error) {
-	rp, err := proxy.RoundRobinProxySwitcher(proxyList...)
-	if err != nil {
-		return nil, err
-	}
-	return &rp, nil
 }
 
 func prepareReportFile(writer *csv.Writer) {

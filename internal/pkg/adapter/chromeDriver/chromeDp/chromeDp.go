@@ -1,7 +1,8 @@
-package chromeDriver
+package chromeDp
 
 import (
 	"amazon-crawler/m/v2/internal/config"
+	"amazon-crawler/m/v2/internal/pkg/adapter/chromeDriver"
 	"context"
 	"fmt"
 	"log"
@@ -11,13 +12,12 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-type ChromeDriver struct {
-	config            *config.Config
-	ChromeContext     context.Context
-	CancelContextFunc context.CancelFunc
+type driver struct {
+	config        *config.Config
+	ChromeContext context.Context
 }
 
-func New(parentCtx context.Context, conf *config.Config) *ChromeDriver {
+func New(parentCtx context.Context, conf *config.Config) (chromeDriver.ChromeDriver, context.CancelFunc) {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", true),
 		chromedp.NoFirstRun,
@@ -37,14 +37,13 @@ func New(parentCtx context.Context, conf *config.Config) *ChromeDriver {
 	}
 	parentCtx, _ = chromedp.NewExecAllocator(parentCtx, opts...)
 	chromeDpCtx, chromeDpCancel := chromedp.NewContext(parentCtx, chromedp.WithDebugf(log.Printf))
-	return &ChromeDriver{
-		config:            conf,
-		ChromeContext:     chromeDpCtx,
-		CancelContextFunc: chromeDpCancel,
-	}
+	return &driver{
+		config:        conf,
+		ChromeContext: chromeDpCtx,
+	}, chromeDpCancel
 }
 
-func (c ChromeDriver) AcceptCookies(url string) error {
+func (c driver) AcceptCookies(url string) error {
 	tasks := chromedp.Tasks{
 		network.SetExtraHTTPHeaders(network.Headers(map[string]interface{}{"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36"})),
 		chromedp.Navigate(url),
@@ -60,7 +59,7 @@ func (c ChromeDriver) AcceptCookies(url string) error {
 	return nil
 }
 
-func (c ChromeDriver) ScreenshotPage(uri string, quality int) (*[]byte, error) {
+func (c driver) ScreenshotPage(uri string, quality int) (*[]byte, error) {
 	imageBuf := []byte{}
 	uri = fmt.Sprintf("%s%s&psc=1", c.config.SearchBaseUrl, uri)
 	tasks := chromedp.Tasks{

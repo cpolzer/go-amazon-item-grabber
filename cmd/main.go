@@ -2,7 +2,7 @@ package main
 
 import (
 	"amazon-crawler/m/v2/internal/config"
-	chromeDriver "amazon-crawler/m/v2/internal/pkg/adapter/chrome"
+	"amazon-crawler/m/v2/internal/pkg/adapter/chromeDriver/chromeDp"
 	"amazon-crawler/m/v2/internal/pkg/adapter/scraper"
 	"context"
 	"encoding/csv"
@@ -34,8 +34,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error setting up required output directories '%s/%s'", conf.OutPath, conf.ScreenshotSubDir)
 	}
-	chromeDriver := chromeDriver.New(parentCtx, &conf)
-	defer chromeDriver.CancelContextFunc()
+	chromeDriver, chromeDriverCancelFunc := chromeDp.New(parentCtx, &conf)
+	defer chromeDriverCancelFunc()
 
 	file, err := os.OpenFile(fmt.Sprintf("%s/%s", conf.OutPath, conf.ReportFileName), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -78,7 +78,7 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	handleGracefulShutdown(chromeDriver.CancelContextFunc)
+	handleGracefulShutdown(chromeDriverCancelFunc)
 }
 
 func handleGracefulShutdown(cancelChromeDriver context.CancelFunc) {

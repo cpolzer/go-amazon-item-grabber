@@ -84,6 +84,5 @@ go.work
 # End of https://www.toptal.com/developers/gitignore/api/go,visualstudiocode
 cmd/__debug_bin
 out/screenshots/*
+**/.DS_Store
 out/.DS_Store
-
-

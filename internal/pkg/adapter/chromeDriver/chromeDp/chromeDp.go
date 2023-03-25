@@ -21,7 +21,6 @@ func New(parentCtx context.Context, conf *config.Config) (chromeDriver.ChromeDri
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.Flag("headless", true),
 		chromedp.NoFirstRun,
-
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.WindowSize(1920, 1080),
 	)

@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gocolly/colly/v2"
 )
 
@@ -40,14 +41,35 @@ func (scr Scraper) GetSearchItemLinksAndAsin(searchTerm string) (map[string]stri
 
 	prepareReportFile(scr.csvWriter)
 
-	scr.collector.OnHTML("a.a-link-normal", func(e *colly.HTMLElement) {
-		link := e.Attr("href")
+	scr.collector.OnHTML(`div[data-component-type="s-search-result"]`, func(e *colly.HTMLElement) {
+		asin := e.Attr("data-asin")
+		fmt.Printf("Found asin! %s\n", asin)
 
-		if strings.Contains(link, "/dp/") {
-			s := scr.asinRegex.ReplaceAllString(link, `$1`)
-			knownASINs[s] = link
-		}
+		e.ForEach("div.sg-col-inner > div.s-widget-container > div.s-card-container > div.a-section > div.a-section", func(_ int, el *colly.HTMLElement) {
 
+			domItems := el.DOM.Children()
+
+			selection := domItems.Find("div.a-row > span.a-color-base.a-text-bold")
+			if selection.Nodes != nil && len(selection.Nodes) > 0 {
+				html, err := goquery.OuterHtml(selection)
+				if err != nil {
+					fmt.Printf("Error grabbing outer html. %v\n", err)
+				}
+				if strings.Contains(html, "Amazon Merch on Demand") {
+					selection = domItems.Find("a.a-link-normal")
+					if selection.Nodes != nil && len(selection.Nodes) > 0 {
+						for idx, node := range selection.Nodes {
+							element := colly.NewHTMLElementFromSelectionNode(el.Response, selection, node, idx)
+							link := element.Attr("href")
+							if strings.Contains(link, "/dp/") {
+								knownASINs[asin] = link
+							}
+						}
+					}
+				}
+			}
+
+		})
 	})
 
 	err := scr.collector.Visit(fmt.Sprintf("%s/s?k=%s", scr.conf.SearchBaseUrl, searchTerm))

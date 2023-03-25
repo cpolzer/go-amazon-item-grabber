@@ -6,4 +6,5 @@ type Config struct {
 	ScreenshotSubDir string `env:"SCREENSHOT_SUB_PATH,default=screenshots"`
 	ReportFileName   string `env:"REPORT_FILENAME,default=data.csv"`
 	SearchBaseUrl    string `env:"SEARCH_BASE_URL,default=https://www.amazon.de"`
+	SearchPattern    string `env:"SEARCH_PATTERN,default=normahl+shirt"`
 }

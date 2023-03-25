@@ -39,7 +39,7 @@ func main() {
 	defer writer.Flush()
 
 	htmlScraper := scraper.New(parentCtx, &conf, file, writer)
-	knownASINs, err := htmlScraper.GetSearchItemLinksAndAsin("normahl+shirt")
+	knownASINs, err := htmlScraper.GetSearchItemLinksAndAsin(conf.SearchPattern)
 	if err != nil {
 		log.Fatalf("Error scrapeing our target - err: %q", err)
 	}
